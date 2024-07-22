@@ -1,0 +1,148 @@
+Write 10 CREATE TABLE commands to create the tables requested.
+CREATE TABLE aliases (alias_id NUMBER(6), criminal_id NUMBER(6,0), alias VARCHAR2 (10));
+
+CREATE TABLE criminals (criminal_id NUMBER(6,0), last VARCHAR2(15), first VARCHAR2(10), street VARCHAR2(30), city VARCHAR2(20), state CHAR(2), zip CHAR(5), phone CHAR(10), v_status CHAR(1) DEFAULT ‘N’, p_status CHAR(1) DEFAULT ‘N’);
+
+CREATE TABLE crimes (crime_id NUMBER(9,0), criminal_id NUMBER(6,0), classification CHAR(1), data_charged DATE, status CHAR(2), hearing_date DATE, appeal_cut_date DATE);
+
+CREATE TABLE sentences (sentence_id NUMBER(6), criminal_id NUMBER(6), type CHAR(1), prob_id NUMBER (5), start_date DATE, end_date DATE, violations NUMBER(3));
+
+CREATE TABLE prob_officers (prob_id NUMBER(5), last VARCHAR2(15), first VARCHAR2(10), street VARCHAR2(30), city VARCHAR2(20), state CHAR(2), zip CHAR(5), phone CHAR(10), email VARCHAR2(30), status CHAR(1) DEFAULT ‘A’);
+
+CREATE TABLE crime_charges (charge_id NUMBER(10,0), crime_id NUMBER (9,0), crime_code NUMBER(3,0), charge_status CHAR(2), fine_amount NUMBER(7,2), court_fee NUMBER(7,2), amount_paid NUMBER(7,2), pay_due_date DATE);
+
+CREATE TABLE crime_officers (crime_id NUMBER(9,0), officer_id NUMBER(8,0));
+
+CREATE TABLE officers (officer_id NUMBER(8,0), last VARCHAR2(15), first VARCHAR2(10), precinct CHAR(4), badge VARCHAR2(14), phone CHAR(10), status CHAR(1) DEFAULT ‘A’);
+
+CREATE TABLE appeals (appeal_id NUMBER(5), crime_id NUMBER(9,0), filing_date DATE, hearing_date DATE, status CHAR(1) DEFAULT ‘P’);
+
+CREATE TABLE crime_codes (crime_code NUMBER(3,0), code_description VARCHAR2(30));
+
+
+Write 4 ALTER TABLE commands to undertake the requested changes.
+ALTER TABLE crimes MODIFY (classification DEFAULT ‘U’);
+ALTER TABLE crimes ADD (date_recorded DATE DEFAULT SYSDATE);
+ALTER TABLE prob_officers ADD (pager# CHAR(10));
+ALTER TABLE aliases MODIFY (alias VARCHAR2(20));
+
+
+
+
+
+
+8) SELECT sentence_id, criminal_id, prob_id FROM sentences WHERE prob_id IS NOT
+NULL ORDER BY prob_id, criminal_id;
+9) SELECT crime_id, criminal_id, classification, status FROM crimes WHERE classification =
+‘M’ AND status = ‘IA’;
+10) SELECT charge_id, crime_id, fine_amount, court_fee, amount_paid,
+(NVL(fine_amount,0)+NVL(court_fee,0)-NVL(amount_paid,0)) AS amount_owed FROM
+crime_charges WHERE  (NVL(fine_amount,0)+NVL(court_fee,0)-NVL(amount_paid,0))>0;
+11) SELECT officer_id, last, precinct, status FROM officers WHERE precinct IN (‘OCVW’,
+‘GHNT’) AND status = ‘A’ ORDER BY precinct, last;
+
+
+
+1. List all criminals along with the crime charges filed. The report needs to include the criminal ID, name, crime code, and fine amount. 
+
+SELECT c.criminal_id, c.first, c.last, cc.crime_code, cc.fine_amount 
+FROM criminals c
+JOIN crimes cr ON cr.criminal_id= c.criminal_id
+JOIN crime_charges cc ON cc.crime_id= cr.crime_id;
+
+
+2. List all criminals along with crime status and appeal status (if applicable). The reports need to include the criminal ID, name, crime classification, date charged, appeal filing date, and appeal status. Show all criminals, regardless of whether they have filed an appeal. 
+
+SELECT c.criminal_id, c.first, c.last, cr.classification, cr.date_charged, a.filing_date, a.status
+FROM criminals c
+JOIN crimes cr ON  cr.criminal_id= c.criminal_id
+LEFT OUTER JOIN appeals a ON cr.crime_id = a.crime_id;
+
+3. List all criminals along with crime information. The report needs to include the criminal ID, name, crime classification, date charged, crime code, and fine amount. Include only crimes classified as “Other.” Sort the list by criminal ID and date charged. 
+
+SELECT c. criminal_id, c.first, c.last, cr.classification, cr.date_charged, ch.crime_code, ch.fine_amount
+FROM criminals c
+JOIN crimes cr ON cr.criminal_id = c.criminal_id
+JOIN crime_charges ch ON ch.crime_id= cr.crime_id
+WHERE cr.classification = ‘O’
+ORDER BY c.criminal_id, cr.date_charged;
+
+4. Create an alphabetical list of all criminals, including criminal ID, name, violent offender status, parole status, and any known aliases. 
+
+SELECT c.criminal_id, c.first, c.last, c.v_status, c.p_status, a.alias
+FROM criminals c
+LEFT OUTER JOIN aliases a ON a.criminal_id= c.criminal_id
+ORDER BY c.last, c.first;
+
+
+
+1. )
+SELECT AVG(COUNT(crime_id)) AS average_crimes
+FROM crime_officers
+JOIN officers USING (officer_id)
+GROUP BY officer_id;
+
+5.)
+SELECT criminal_id, first, last, COUNT(sentence_id)
+FROM criminals
+JOIN sentences USING(criminal_id)
+GROUP BY criminal_id, first, last
+HAVING COUNT(sentence_id) > 1;
+
+6. )
+SELECT COUNT(charge_status) AS charges_defended, precinct
+FROM crime_officers 
+JOIN officers USING(officer_id) 
+JOIN crime_charges USING(crime_id)
+WHERE charge_status ='GL'
+GROUP BY precinct
+HAVING COUNT(charge_status) >= 7;
+
+7. )
+SELECT classification, SUM (NVL(fine_amount,0)+ NVL(court_fee,0)) AS total_collections, 
+SUM (NVL(fine_amount,0)+ NVL(court_fee,0) - NVL(amount_paid, 0)) AS amount_owed
+FROM crime_charges
+JOIN crimes USING (crime_id)
+GROUP BY classification;
+
+
+
+
+
+
+
+
+
+5. 
+SELECT DISTINCT crime_id
+FROM crimes
+JOIN appeals USING (crime_id)
+WHERE crime_id 
+IN (SELECT crime_id FROM appeals GROUP BY crime_id
+HAVING COUNT(*) =(SELECT MAX(COUNT(*)) 
+FROM appeals
+GROUP BY crime_id));
+
+6.
+SELECT charge_id, crime_id, crime_code, charge_status, TO_CHAR(fine_amount, '$9999.99') AS fine_amount, TO_CHAR(court_fee, '$9999.99') AS court_fee, TO_CHAR(amount_paid, '$9999.99') AS amount_paid, pay_due_date
+FROM crime_charges
+WHERE fine_amount  > 
+(SELECT AVG(fine_amount) FROM crime_charges)
+AND amount_paid <
+(SELECT AVG(amount_paid) FROM crime_charges);
+
+7.
+SELECT DISTINCT criminal_id, last, first FROM criminals
+JOIN crimes USING (criminal_id)
+JOIN crime_charges USING (crime_id)
+WHERE 
+crime_code = (SELECT crime_code FROM crime_charges WHERE crime_id = '10089') ORDER BY criminal_id;
+
+8. 
+SELECT DISTINCT criminal_id, last, first
+FROM criminals
+WHERE EXISTS (SELECT criminal_id
+			FROM sentences
+			WHERE criminals.criminal_id=sentences.criminal_id
+AND p_status = 'Y')
+ORDER BY criminal_id;
